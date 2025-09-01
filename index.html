@@ -36,6 +36,14 @@
             color: #2563eb;
             font-weight: 600;
         }
+        /* Custom style for file list animation */
+        .file-item {
+            animation: fadeIn 0.3s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
     </style>
 </head>
 
@@ -85,11 +93,11 @@
                         </svg>
                         上传信件
                     </h2>
-                    <p class="text-gray-600 mb-6">支持 PDF, 图片等格式</p>
+                    <p class="text-gray-600 mb-6">最多可上传 5 页</p>
 
                     <div id="upload-area"
                         class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-blue-500 transition-colors">
-                        <input type="file" id="file-upload" class="hidden" accept="image/*,.pdf">
+                        <input type="file" id="file-upload" class="hidden" accept="image/*,.pdf" multiple>
                         <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none"
                             stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
                             class="mx-auto text-gray-400 mb-4">
@@ -98,24 +106,16 @@
                             <line x1="12" y1="3" x2="12" y2="15" />
                         </svg>
                         <p class="text-gray-700">点击或拖拽文件到这里上传</p>
-                        <p class="text-sm text-gray-500 mt-1">支持 PNG, JPG, GIF, PDF</p>
+                        <p class="text-sm text-gray-500 mt-1">支持 PNG, JPG, GIF (最多5个文件)</p>
                     </div>
 
-                    <div id="file-preview" class="hidden mt-6">
-                        <div class="flex items-center bg-gray-100 p-4 rounded-lg">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
-                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                stroke-linejoin="round" class="mr-4 text-blue-600">
-                                <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
-                                <polyline points="14 2 14 8 20 8" />
-                            </svg>
-                            <div>
-                                <p id="file-name" class="font-medium text-gray-800"></p>
-                                <p id="file-size" class="text-sm text-gray-600"></p>
-                            </div>
-                            <button id="reset-upload"
-                                class="ml-auto bg-red-500 text-white px-3 py-1 rounded-md hover:bg-red-600 transition-colors text-sm">重新上传</button>
-                        </div>
+                    <div id="file-preview-container" class="hidden mt-6">
+                        <div id="file-list" class="space-y-3"></div>
+                         <button id="reset-upload-btn"
+                                class="w-full mt-4 bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition-colors font-semibold">
+                                清空并重新上传
+                        </button>
+                         <div id="upload-error" class="text-red-600 text-sm mt-2"></div>
                     </div>
                 </div>
 
@@ -135,8 +135,12 @@
                         <div class="spinner"></div>
                         <p class="ml-4 text-gray-700">正在智能分析中，请稍候...</p>
                     </div>
+                    
+                    <div id="analysis-prompt" class="hidden text-center text-gray-600 p-8 border-2 border-dashed rounded-lg">
+                        请先上传文件
+                    </div>
 
-                    <div id="analysis-results">
+                    <div id="analysis-results" class="hidden">
                         <!-- Content Summary -->
                         <div>
                             <h3 class="text-lg font-semibold mb-2 text-gray-700 flex items-center">
@@ -254,25 +258,28 @@
 
 
     <script type="module">
+        const MAX_FILES = 5;
         // Gemini API Configuration
-        const API_KEY = ""; // This will no longer be used directly.
-        const GENERATE_TEXT_API_URL = '/api/analyze'; // Change this to our own backend endpoint
+        const GENERATE_TEXT_API_URL = '/api/analyze'; // Our own backend endpoint
 
         // DOM Elements
         const uploadArea = document.getElementById('upload-area');
         const fileUpload = document.getElementById('file-upload');
-        const filePreview = document.getElementById('file-preview');
-        const fileNameEl = document.getElementById('file-name');
-        const fileSizeEl = document.getElementById('file-size');
-        const resetUploadBtn = document.getElementById('reset-upload');
+        const filePreviewContainer = document.getElementById('file-preview-container');
+        const fileListEl = document.getElementById('file-list');
+        const resetUploadBtn = document.getElementById('reset-upload-btn');
+        const uploadErrorEl = document.getElementById('upload-error');
+        
         const resultSection = document.getElementById('result-section');
         const loadingSpinner = document.getElementById('loading-spinner');
+        const analysisPrompt = document.getElementById('analysis-prompt');
         const analysisResults = document.getElementById('analysis-results');
         const summaryEl = document.getElementById('summary');
         const keyInfoEl = document.getElementById('key-info');
         const actionItemsSection = document.getElementById('action-items-section');
         const actionItemsEl = document.getElementById('action-items');
         const generateReplyBtn = document.getElementById('generate-reply-btn');
+        
         const replyModal = document.getElementById('reply-modal');
         const closeModalBtn = document.getElementById('close-modal-btn');
         const replyLoading = document.getElementById('reply-loading');
@@ -280,7 +287,7 @@
         const copyReplyBtn = document.getElementById('copy-reply-btn');
         const copyBtnText = document.getElementById('copy-btn-text');
 
-        // New Tab elements
+        // Tab elements
         const originalReplyTab = document.getElementById('original-reply-tab');
         const chineseReplyTab = document.getElementById('chinese-reply-tab');
         const originalReplyPanel = document.getElementById('original-reply-panel');
@@ -288,7 +295,8 @@
         const originalReplyTextarea = document.getElementById('original-reply-textarea');
         const chineseReplyTextarea = document.getElementById('chinese-reply-textarea');
 
-        let uploadedFile = null;
+        // State
+        let uploadedFiles = [];
         let originalLanguage = 'Unknown';
 
         // Event Listeners
@@ -303,16 +311,12 @@
         uploadArea.addEventListener('drop', (e) => {
             e.preventDefault();
             uploadArea.classList.remove('border-blue-500', 'bg-blue-50');
-            const files = e.dataTransfer.files;
-            if (files.length > 0) {
-                handleFile(files[0]);
-            }
+            handleFiles(e.dataTransfer.files);
         });
         fileUpload.addEventListener('change', (e) => {
-            if (e.target.files.length > 0) {
-                handleFile(e.target.files[0]);
-            }
+            handleFiles(e.target.files);
         });
+        
         resetUploadBtn.addEventListener('click', resetState);
         generateReplyBtn.addEventListener('click', handleGenerateReply);
         closeModalBtn.addEventListener('click', () => replyModal.classList.add('hidden'));
@@ -320,6 +324,14 @@
         
         originalReplyTab.addEventListener('click', () => switchTab('original'));
         chineseReplyTab.addEventListener('click', () => switchTab('chinese'));
+        
+        fileListEl.addEventListener('click', (e) => {
+            if (e.target.closest('.remove-file-btn')) {
+                const index = e.target.closest('.remove-file-btn').dataset.index;
+                removeFile(parseInt(index, 10));
+            }
+        });
+
 
         function switchTab(tabName) {
             if (tabName === 'original') {
@@ -336,35 +348,82 @@
                 copyBtnText.textContent = '复制中文内容';
             }
         }
-
-
+        
         /**
          * Resets the application to its initial state.
          */
         function resetState() {
             fileUpload.value = '';
-            uploadedFile = null;
+            uploadedFiles = [];
             originalLanguage = 'Unknown';
-            uploadArea.classList.remove('hidden');
-            filePreview.classList.add('hidden');
+            renderFilePreview(); // This will handle showing/hiding the right elements
             resultSection.classList.add('hidden');
-            analysisResults.style.display = 'none';
+            analysisResults.classList.add('hidden');
             actionItemsSection.classList.add('hidden');
+            analysisPrompt.classList.remove('hidden');
             actionItemsEl.innerHTML = '';
             keyInfoEl.innerHTML = '';
+            uploadErrorEl.textContent = '';
         }
 
         /**
-         * Handles the selected file, displays preview, and starts analysis.
-         * @param {File} file The file selected by the user.
+         * Handles the selected files, validates them, and updates the UI.
+         * @param {FileList} files The files selected by the user.
          */
-        function handleFile(file) {
-            uploadedFile = file;
-            fileNameEl.textContent = file.name;
-            fileSizeEl.textContent = `${(file.size / 1024 / 1024).toFixed(2)} MB`;
+        function handleFiles(files) {
+            uploadErrorEl.textContent = '';
+            const newFiles = Array.from(files);
+            
+            if (uploadedFiles.length + newFiles.length > MAX_FILES) {
+                uploadErrorEl.textContent = `一次最多只能上传 ${MAX_FILES} 个文件。`;
+                return;
+            }
+            
+            uploadedFiles.push(...newFiles);
+            renderFilePreview();
+            analyzeLetter();
+        }
+
+        /**
+         * Renders the list of uploaded files.
+         */
+        function renderFilePreview() {
+            if (uploadedFiles.length === 0) {
+                uploadArea.classList.remove('hidden');
+                filePreviewContainer.classList.add('hidden');
+                return;
+            }
+            
             uploadArea.classList.add('hidden');
-            filePreview.classList.remove('hidden');
-            resultSection.classList.remove('hidden');
+            filePreviewContainer.classList.remove('hidden');
+            
+            fileListEl.innerHTML = uploadedFiles.map((file, index) => `
+                <div class="file-item flex items-center bg-gray-100 p-3 rounded-lg">
+                    <div class="flex-shrink-0 bg-blue-500 text-white w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold mr-3">
+                        ${index + 1}
+                    </div>
+                    <div class="flex-grow">
+                        <p class="font-medium text-gray-800 text-sm truncate">${file.name}</p>
+                        <p class="text-xs text-gray-600">${(file.size / 1024).toFixed(1)} KB</p>
+                    </div>
+                    <button data-index="${index}" class="remove-file-btn ml-auto text-gray-500 hover:text-red-600 transition-colors p-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                </div>
+            `).join('');
+        }
+        
+        /**
+         * Removes a file from the uploaded list and re-renders the preview.
+         * @param {number} index The index of the file to remove.
+         */
+        function removeFile(index) {
+            uploadedFiles.splice(index, 1);
+            uploadErrorEl.textContent = '';
+            renderFilePreview();
             analyzeLetter();
         }
 
@@ -382,28 +441,19 @@
             });
         }
         
-        /**
-         * Makes a request to the backend API with exponential backoff.
-         * @param {object} payload The request payload.
-         * @param {number} maxRetries Maximum number of retries.
-         * @returns {Promise<object>} The API response.
-         */
         async function fetchWithBackoff(payload, maxRetries = 5) {
             let attempt = 0;
-            let delay = 1000; // 1 second
+            let delay = 1000;
             while (attempt < maxRetries) {
                 try {
                     const response = await fetch(GENERATE_TEXT_API_URL, {
                         method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
+                        headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload),
                     });
 
-                    if (response.ok) {
-                        return await response.json();
-                    } else if (response.status === 429) { // Throttling
+                    if (response.ok) return await response.json();
+                    if (response.status === 429) {
                         await new Promise(res => setTimeout(res, delay));
                         delay *= 2;
                         attempt++;
@@ -412,9 +462,7 @@
                         throw new Error(`API Error: ${response.status} - ${errorData.error || response.statusText}`);
                     }
                 } catch (error) {
-                     if (attempt >= maxRetries -1) {
-                        throw error;
-                     }
+                     if (attempt >= maxRetries -1) throw error;
                      await new Promise(res => setTimeout(res, delay));
                      delay *= 2;
                      attempt++;
@@ -428,31 +476,44 @@
          * Analyzes the uploaded letter using the Gemini API.
          */
         async function analyzeLetter() {
-            if (!uploadedFile) return;
-
+            resultSection.classList.remove('hidden');
+            
+            if (uploadedFiles.length === 0) {
+                analysisPrompt.classList.remove('hidden');
+                analysisResults.classList.add('hidden');
+                loadingSpinner.classList.add('hidden');
+                return;
+            }
+            
+            analysisPrompt.classList.add('hidden');
             loadingSpinner.classList.remove('hidden');
-            analysisResults.style.display = 'none';
+            analysisResults.classList.add('hidden');
 
             try {
-                const base64Data = await fileToBase64(uploadedFile);
+                const base64Promises = uploadedFiles.map(file => fileToBase64(file));
+                const base64DataArray = await Promise.all(base64Promises);
+                const mimeType = uploadedFiles[0].type; // Assume all files are of the same type
 
-                const systemPrompt = `你是一位专业的行政助理。你的任务是分析上传的信件（图片或PDF格式），并以结构化的JSON格式提供以下信息：
-1.  **summary**: 用简体中文对信件内容进行简洁的摘要。
+                const systemPrompt = `你是一位专业的行政助理。你的任务是分析上传的一系列信件图片（它们共同组成一封多页信件），并以结构化的JSON格式提供以下信息：
+1.  **summary**: 用简体中文对整个信件内容进行简洁的摘要。
 2.  **language**: 信件的原始语言 (例如, "English", "Swedish", "German")。
-3.  **keyInfo**: 一个包含信件中关键信息点的字符串数组。例如：发件人、事由、重要日期等。
-4.  **actionItems**: 一个对象数组，代表收件人需要回复或处理的事项。每个对象应该包含：
-    -   **id**: 一个唯一标识符 (例如, "question1", "question2")。
-    -   **question**: 一个用简体中文提出的清晰问题，引导用户提供回复所需的信息。
+3.  **keyInfo**: 一个包含信件中关键信息点的字符串数组。
+4.  **actionItems**: 一个对象数组，代表收件人需要回复或处理的事项。
 
 如果信件不需要任何回复或操作，返回一个空的 "actionItems" 数组。
-确保你的回答严格遵循JSON格式，不要包含任何额外的解释或非JSON文本。`;
+确保你的回答严格遵循JSON格式。`;
 
+                const contentParts = [
+                    { text: "请将以下图片作为一封多页信件进行连续分析，并提供整合后的结果。" }
+                ];
+
+                base64DataArray.forEach(data => {
+                    contentParts.push({ inlineData: { mimeType, data } });
+                });
 
                 const payload = {
                     systemInstruction: { parts: [{ text: systemPrompt }] },
-                    contents: [{
-                        parts: [{ text: "请分析这封信件。" }, { inlineData: { mimeType: uploadedFile.type, data: base64Data }}]
-                    }],
+                    contents: [{ parts: contentParts }],
                     generationConfig: { responseMimeType: "application/json" }
                 };
                 
@@ -468,21 +529,16 @@
 
             } catch (error) {
                 console.error("分析失败:", error);
-                summaryEl.textContent = "抱歉，分析信件时出错。请检查文件格式或稍后重试。";
-                document.getElementById('analysis-results').style.display = 'block';
-                summaryEl.parentElement.classList.remove('hidden');
+                summaryEl.textContent = `抱歉，分析信件时出错: ${error.message}`;
+                analysisResults.classList.remove('hidden'); // Show results section to display the error
             } finally {
                 loadingSpinner.classList.add('hidden');
             }
         }
-
-        /**
-         * Displays the analysis results on the page.
-         * @param {object} data The analysis data from the API.
-         */
+        
         function displayAnalysis(data) {
-            analysisResults.style.display = 'block';
-            originalLanguage = data.language; // Store the original language
+            analysisResults.classList.remove('hidden');
+            originalLanguage = data.language;
             summaryEl.textContent = data.summary;
 
             keyInfoEl.innerHTML = data.keyInfo.map(info =>
@@ -505,22 +561,16 @@
             }
         }
         
-        /**
-         * Handles the generation of the reply letter.
-         */
         async function handleGenerateReply() {
              generateReplyBtn.disabled = true;
              generateReplyBtn.textContent = '正在生成...';
              replyModal.classList.remove('hidden');
              replyLoading.classList.remove('hidden');
              replyContentContainer.classList.add('hidden');
-             // Reset tabs to default state
              switchTab('original');
 
-
              const userAnswers = {};
-             const inputs = actionItemsEl.querySelectorAll('input[type="text"]');
-             inputs.forEach(input => {
+             actionItemsEl.querySelectorAll('input[type="text"]').forEach(input => {
                 userAnswers[input.id] = input.value;
              });
 
@@ -534,7 +584,7 @@
   3. 对象的第二个键是 "chineseReply"，值是 "originalReply" 的简体中文翻译，方便用户核对。
   4. 回信内容必须清晰地回应所有需要处理的事项。
   5. 保持专业和礼貌的语气。
-  6. 严格返回JSON格式，不要包含任何额外的解释或非JSON文本。`;
+  6. 严格返回JSON格式。`;
                 
                 const payload = {
                     systemInstruction: { parts: [{ text: systemPrompt }] },
@@ -567,19 +617,11 @@
              }
         }
         
-        /**
-         * Copies the generated reply text to the clipboard.
-         */
         function copyReplyToClipboard() {
-            let textToCopy = '';
-            // Check which panel is active
-            if (!originalReplyPanel.classList.contains('hidden')) {
-                textToCopy = originalReplyTextarea.value;
-            } else {
-                textToCopy = chineseReplyTextarea.value;
-            }
+            const textToCopy = !originalReplyPanel.classList.contains('hidden')
+                ? originalReplyTextarea.value
+                : chineseReplyTextarea.value;
             
-            // Create a temporary textarea to perform the copy command
             const tempTextArea = document.createElement('textarea');
             tempTextArea.value = textToCopy;
             document.body.appendChild(tempTextArea);
@@ -587,15 +629,9 @@
             
             try {
                 const successful = document.execCommand('copy');
-                if (successful) {
-                    const originalBtnText = copyBtnText.textContent;
-                    copyBtnText.textContent = '已复制!';
-                    setTimeout(() => {
-                        copyBtnText.textContent = originalBtnText;
-                    }, 2000);
-                } else {
-                    throw new Error('Copy command was not successful');
-                }
+                const originalBtnText = copyBtnText.textContent;
+                copyBtnText.textContent = successful ? '已复制!' : '复制失败';
+                setTimeout(() => { copyBtnText.textContent = originalBtnText; }, 2000);
             } catch (err) {
                  console.error('Fallback: Oops, unable to copy', err);
                  copyBtnText.textContent = '复制失败';
@@ -603,6 +639,9 @@
                 document.body.removeChild(tempTextArea);
             }
         }
+        
+        // Initial setup
+        resetState();
 
     </script>
 </body>
