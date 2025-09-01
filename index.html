@@ -47,18 +47,7 @@
                 <h1 class="text-4xl md:text-5xl font-bold text-center">老杨帮您来写信</h1>
                 <p class="text-lg md:text-xl text-center mt-4 text-blue-100">一页一页上传，再也不怕弄错</p>
                 <div class="mt-4 max-w-3xl mx-auto text-center text-sm text-blue-200 bg-black/20 p-3 rounded-lg flex items-center justify-center space-x-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="flex-shrink-0"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-                    <span>老杨是一个人工智能AI机器人，您上传的任何信件，平台不会保存，而且保证您上传的信件只有老杨机器人可以看到。</span>
-                </div>
-            </div>
-        </header>
-
-        <main class="container mx-auto px-4 py-8 flex-grow">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <!-- Upload Section -->
-                <div class="bg-white p-6 rounded-lg shadow-md">
-                    <h2 class="text-2xl font-semibold mb-4 text-gray-800 flex items-center">
-                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3 text-blue-600"><path d="M4 22h14a2 2 0 0 0 2-2V7.5L14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2z"></path><polyline points="14 2 14 8 20 8"></polyline><path d="M12 18h-1a2 2 0 0 1-2-2v-1a2 2 0 0 1 2-2h1v5z"></path></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 M4 22h14a2 2 0 0 0 2-2V7.5L14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2z"></path><polyline points="14 2 14 8 20 8"></polyline><path d="M12 18h-1a2 2 0 0 1-2-2v-1a2 2 0 0 1 2-2h1v5z"></path></svg>
                         上传信件
                     </h2>
                     <p class="text-gray-600 mb-6">请按照顺序，一页一页地上传</p>
@@ -297,7 +286,7 @@
         }
 
         /**
-         * Analyzes the uploaded letter using the Gemini API.
+         * Analyzes the uploaded letter using the new 3-step workflow.
          */
         async function analyzeLetter() {
             const filesToProcess = uploadedFiles.filter(file => file !== null);
@@ -317,20 +306,20 @@
             `;
 
             try {
-                // --- STAGE 1: Extract text from each page ---
-                const extractedTexts = [];
+                // --- STEP 1: Extract original text from each page ---
+                const originalTexts = [];
                 for (let i = 0; i < filesToProcess.length; i++) {
                     const file = filesToProcess[i];
-                    loadingText.textContent = `老杨正在努力读第 ${i + 1} 页 (共 ${filesToProcess.length} 页)...`;
+                    loadingText.textContent = `第 1 步：正在提取第 ${i + 1} 页原文 (共 ${filesToProcess.length} 页)...`;
                     
                     const base64Data = await fileToBase64(file);
                     const mimeType = file.type;
                     
-                    const extractionPrompt = `你是一个高精度的OCR（光学字符识别）与翻译工具。你的唯一任务是将图片中的所有文字，一字不差地提取出来，并直接翻译成简体中文。不要进行任何总结、解释或添加任何非原文内容。直接返回纯文本格式的中文翻译。`;
+                    const extractionPrompt = `你是一个高精度的OCR（光学字符识别）工具。你的唯一任务是将图片中的所有文字，一字不差地提取出来。直接返回纯文本。不要翻译，不要总结，不要解释。`;
                     const payload = {
                         systemInstruction: { parts: [{ text: extractionPrompt }] },
                         contents: [{ parts: [
-                            { text: "请提取并翻译这张图片里的所有文字为简体中文。" },
+                            { text: "请提取这张图片里的所有原文文字。" },
                             { inlineData: { mimeType, data: base64Data } }
                         ]}]
                     };
@@ -341,39 +330,53 @@
                     if (!extractedText || extractedText.trim() === "") {
                         throw new Error(`第 ${i + 1} 页未能读取到有效内容。`);
                     }
-                    extractedTexts.push(extractedText);
+                    originalTexts.push(extractedText);
                 }
+                const fullOriginalText = originalTexts.join('\n\n--- (下一页) ---\n\n');
 
-                // --- STAGE 2: Analyze the combined translated text ---
-                loadingText.textContent = `正在总结全文...`;
-                const fullTranslatedText = extractedTexts.join('\n\n--- (下一页) ---\n\n');
 
-                const analysisPrompt = `你是一位极其严谨、注重细节的法律助理。你收到了以下由高精度翻译机生成的、一份多页信件的**完整中文翻译稿**。
-你的任务是**仅仅**根据这份文稿，生成一个完美的JSON对象，结构如下：
-1.  \`summary\`: (字符串) 根据这份完整中文翻译稿，撰写一份详细的中文内容摘要。你必须自我检查，确保摘要里的每一条信息都能在翻译稿里找到原文依据。
-2.  \`language\`: (字符串) 根据文稿内容判断原始信件最可能使用的语言 (例如, "Swedish", "English")。如果无法判断，返回 "Unknown"。
-3.  \`keyInfo\`: (字符串数组) 从中文翻译稿中，提取出最重要的关键信息点列表。
-4.  \`actionItems\`: (对象数组) 从中文翻译稿中，判断出所有需要收信人完成的任务或回复的问题。如果没有，必须返回一个空数组 \`[]\`。
-这个两步流程是强制性的，它确保了在进行任何分析之前，所有原始信息都被完整地翻译和保留。
+                // --- STEP 2: Analyze the combined original text ---
+                loadingText.textContent = `第 2 步：正在总结原文...`;
+                const analysisPrompt = `你是一位极其严谨、注重细节的法律助理。你收到了以下一份多页信件的**完整原文**。
+你的任务是**仅仅**根据这份原文，生成一个完美的JSON对象，**所有内容都必须使用信件的原始语言**，结构如下：
+1.  \`summary\`: (字符串) 根据这份完整原文，撰写一份详细的内容摘要。
+2.  \`language\`: (字符串) 判断这份原文使用的语言 (例如, "Swedish", "English")。
+3.  \`keyInfo\`: (字符串数组) 从原文中，提取出最重要的关键信息点列表。
+4.  \`actionItems\`: (对象数组) 从原文中，判断出所有需要收信人完成的任务或回复的问题。如果没有，必须返回一个空数组 \`[]\`。
 
-以下是完整的中文翻译稿：
-${fullTranslatedText}`;
+以下是完整的信件原文：
+${fullOriginalText}`;
                 
                 const analysisPayload = {
                     systemInstruction: { parts: [{ text: analysisPrompt }] },
-                    contents: [{ parts: [{ text: "请根据以上内容生成分析结果。" }] }],
+                    contents: [{ parts: [{ text: "请根据以上内容生成原文分析结果。" }] }],
                     generationConfig: { responseMimeType: "application/json" }
                 };
 
-                const result = await fetchWithBackoff(analysisPayload);
-                const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                const analysisResult = await fetchWithBackoff(analysisPayload);
+                const originalAnalysisJSON = analysisResult.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (!originalAnalysisJSON) throw new Error("未能生成有效的原文分析结果。");
+                const originalAnalysis = JSON.parse(originalAnalysisJSON);
 
-                if (text) {
-                    const data = JSON.parse(text);
-                    displayAnalysis(data);
-                } else {
-                    throw new Error("未能从API获取有效分析结果。");
-                }
+                // --- STEP 3: Translate the analysis to Chinese ---
+                loadingText.textContent = `第 3 步：正在翻译总结...`;
+                const translationPrompt = `你是一个高精度的翻译引擎。你的唯一任务是将用户提供的JSON对象中所有的字符串值翻译成简体中文。保持JSON结构不变。
+需要翻译的JSON对象如下：
+${originalAnalysisJSON}`;
+
+                const translationPayload = {
+                    systemInstruction: { parts: [{ text: translationPrompt }] },
+                    contents: [{ parts: [{ text: "请翻译这个JSON对象。" }] }],
+                    generationConfig: { responseMimeType: "application/json" }
+                };
+
+                const translationResult = await fetchWithBackoff(translationPayload);
+                const translatedJSON = translationResult.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (!translatedJSON) throw new Error("未能翻译分析结果。");
+
+                const finalData = JSON.parse(translatedJSON);
+                displayAnalysis(finalData);
+
 
             } catch (error) {
                 console.error("分析失败:", error);
@@ -389,7 +392,8 @@ ${fullTranslatedText}`;
         
         function displayAnalysis(data) {
             analysisResults.classList.remove('hidden');
-            originalLanguage = data.language;
+            // We get the language from the Step 2 analysis, but display the Step 3 translated content.
+            originalLanguage = data.language; 
             summaryEl.textContent = data.summary;
 
             keyInfoEl.innerHTML = data.keyInfo.map(info =>
