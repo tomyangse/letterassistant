@@ -47,7 +47,21 @@
                 <h1 class="text-4xl md:text-5xl font-bold text-center">老杨帮您来写信</h1>
                 <p class="text-lg md:text-xl text-center mt-4 text-blue-100">一页一页上传，再也不怕弄错</p>
                 <div class="mt-4 max-w-3xl mx-auto text-center text-sm text-blue-200 bg-black/20 p-3 rounded-lg flex items-center justify-center space-x-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 M4 22h14a2 2 0 0 0 2-2V7.5L14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2z"></path><polyline points="14 2 14 8 20 8"></polyline><path d="M12 18h-1a2 2 0 0 1-2-2v-1a2 2 0 0 1 2-2h1v5z"></path></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="flex-shrink-0"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                    <span>老杨是一个人工智能AI机器人，您上传的任何信件，平台不会保存，而且保证您上传的信件只有老杨机器人可以看到。</span>
+                </div>
+            </div>
+        </header>
+
+        <main class="container mx-auto px-4 py-8 flex-grow">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <!-- Upload Section -->
+                <div class="bg-white p-6 rounded-lg shadow-md">
+                    <h2 class="text-2xl font-semibold mb-4 text-gray-800 flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3 text-blue-600">
+                            <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"></path>
+                            <polyline points="14 2 14 8 20 8"></polyline>
+                        </svg>
                         上传信件
                     </h2>
                     <p class="text-gray-600 mb-6">请按照顺序，一页一页地上传</p>
@@ -225,10 +239,10 @@
                 slotsHTML += `
                     <div class="upload-slot border border-gray-200 rounded-lg p-3">
                         <input type="file" id="file-input-${i}" class="hidden" accept="image/*" data-index="${i}">
-                        <div class="flex items-center space-x-3">
+                        <div class="grid grid-cols-[auto,1fr,auto] gap-3 items-center">
                             <div class="flex-shrink-0 bg-gray-200 text-gray-600 w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg">${i + 1}</div>
-                            <div id="file-info-${i}" class="flex-grow text-gray-500">未上传</div>
-                            <button id="upload-btn-${i}" data-index="${i}" class="upload-btn bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 text-sm font-semibold">上传</button>
+                            <div id="file-info-${i}" class="text-gray-500 truncate">未上传</div>
+                            <button id="upload-btn-${i}" data-index="${i}" class="upload-btn bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 text-sm font-semibold flex-shrink-0">上传</button>
                         </div>
                     </div>
                 `;
@@ -266,7 +280,7 @@
             if (file) {
                 infoEl.innerHTML = `
                     <div class="flex items-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-green-500 mr-2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="text-green-500 mr-2 flex-shrink-0"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
                         <span class="text-gray-800 font-medium text-sm truncate" title="${file.name}">${file.name}</span>
                     </div>
                 `;
@@ -342,7 +356,7 @@
 1.  \`summary\`: (字符串) 根据这份完整原文，撰写一份详细的内容摘要。
 2.  \`language\`: (字符串) 判断这份原文使用的语言 (例如, "Swedish", "English")。
 3.  \`keyInfo\`: (字符串数组) 从原文中，提取出最重要的关键信息点列表。
-4.  \`actionItems\`: (对象数组) 从原文中，判断出所有需要收信人完成的任务或回复的问题。如果没有，必须返回一个空数组 \`[]\`。
+4.  \`actionItems\`: (对象数组) 从原文中，判断出所有需要收信人完成的任务或回复的问题。每个对象**必须**包含两个键：一个唯一的 \`id\` (字符串，例如 "reply_date") 和一个 \`question\` (字符串，即需要向用户提出的问题)。如果没有需要处理的事项，必须返回一个空数组 \`[]\`。
 
 以下是完整的信件原文：
 ${fullOriginalText}`;
@@ -356,7 +370,6 @@ ${fullOriginalText}`;
                 const analysisResult = await fetchWithBackoff(analysisPayload);
                 const originalAnalysisJSON = analysisResult.candidates?.[0]?.content?.parts?.[0]?.text;
                 if (!originalAnalysisJSON) throw new Error("未能生成有效的原文分析结果。");
-                const originalAnalysis = JSON.parse(originalAnalysisJSON);
 
                 // --- STEP 3: Translate the analysis to Chinese ---
                 loadingText.textContent = `第 3 步：正在翻译总结...`;
