@@ -31,6 +31,11 @@
                 transform: rotate(360deg);
             }
         }
+        .tab-btn.active {
+            border-color: #2563eb;
+            color: #2563eb;
+            font-weight: 600;
+        }
     </style>
 </head>
 
@@ -200,9 +205,29 @@
                              <div class="spinner"></div>
                             <p class="ml-4 text-gray-700">正在生成回信...</p>
                         </div>
-                        <div id="reply-text-container" class="hidden">
-                             <textarea id="reply-text" readonly
-                                class="w-full h-64 p-3 border border-gray-300 rounded-lg bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"></textarea>
+                        <div id="reply-content-container" class="hidden">
+                             <!-- Tabs -->
+                             <div class="border-b border-gray-200">
+                                <nav class="-mb-px flex space-x-6" aria-label="Tabs">
+                                    <button id="original-reply-tab" class="tab-btn active whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm">
+                                        原文回信
+                                    </button>
+                                    <button id="chinese-reply-tab" class="tab-btn whitespace-nowrap py-3 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 font-medium text-sm">
+                                        中文翻译
+                                    </button>
+                                </nav>
+                             </div>
+
+                             <!-- Tab Panels -->
+                             <div class="mt-4">
+                                <div id="original-reply-panel">
+                                    <textarea id="original-reply-textarea" readonly class="w-full h-56 p-3 border border-gray-300 rounded-lg bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"></textarea>
+                                </div>
+                                <div id="chinese-reply-panel" class="hidden">
+                                     <textarea id="chinese-reply-textarea" readonly class="w-full h-56 p-3 border border-gray-300 rounded-lg bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"></textarea>
+                                </div>
+                             </div>
+
                             <button id="copy-reply-btn"
                                 class="mt-4 w-full bg-green-600 text-white px-4 py-3 rounded-lg hover:bg-green-700 transition-colors font-semibold flex items-center justify-center">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
@@ -211,7 +236,7 @@
                                     <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
                                     <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
                                 </svg>
-                                <span id="copy-btn-text">复制内容</span>
+                                <span id="copy-btn-text">复制原文内容</span>
                             </button>
                         </div>
                     </div>
@@ -251,13 +276,20 @@
         const replyModal = document.getElementById('reply-modal');
         const closeModalBtn = document.getElementById('close-modal-btn');
         const replyLoading = document.getElementById('reply-loading');
-        const replyTextContainer = document.getElementById('reply-text-container');
-        const replyTextEl = document.getElementById('reply-text');
+        const replyContentContainer = document.getElementById('reply-content-container');
         const copyReplyBtn = document.getElementById('copy-reply-btn');
         const copyBtnText = document.getElementById('copy-btn-text');
 
+        // New Tab elements
+        const originalReplyTab = document.getElementById('original-reply-tab');
+        const chineseReplyTab = document.getElementById('chinese-reply-tab');
+        const originalReplyPanel = document.getElementById('original-reply-panel');
+        const chineseReplyPanel = document.getElementById('chinese-reply-panel');
+        const originalReplyTextarea = document.getElementById('original-reply-textarea');
+        const chineseReplyTextarea = document.getElementById('chinese-reply-textarea');
 
         let uploadedFile = null;
+        let originalLanguage = 'Unknown';
 
         // Event Listeners
         uploadArea.addEventListener('click', () => fileUpload.click());
@@ -285,6 +317,26 @@
         generateReplyBtn.addEventListener('click', handleGenerateReply);
         closeModalBtn.addEventListener('click', () => replyModal.classList.add('hidden'));
         copyReplyBtn.addEventListener('click', copyReplyToClipboard);
+        
+        originalReplyTab.addEventListener('click', () => switchTab('original'));
+        chineseReplyTab.addEventListener('click', () => switchTab('chinese'));
+
+        function switchTab(tabName) {
+            if (tabName === 'original') {
+                originalReplyTab.classList.add('active');
+                chineseReplyTab.classList.remove('active');
+                originalReplyPanel.classList.remove('hidden');
+                chineseReplyPanel.classList.add('hidden');
+                copyBtnText.textContent = `复制${originalLanguage}内容`;
+            } else {
+                chineseReplyTab.classList.add('active');
+                originalReplyTab.classList.remove('active');
+                chineseReplyPanel.classList.remove('hidden');
+                originalReplyPanel.classList.add('hidden');
+                copyBtnText.textContent = '复制中文内容';
+            }
+        }
+
 
         /**
          * Resets the application to its initial state.
@@ -292,6 +344,7 @@
         function resetState() {
             fileUpload.value = '';
             uploadedFile = null;
+            originalLanguage = 'Unknown';
             uploadArea.classList.remove('hidden');
             filePreview.classList.add('hidden');
             resultSection.classList.add('hidden');
@@ -330,7 +383,7 @@
         }
         
         /**
-         * Makes a request to the Gemini API with exponential backoff.
+         * Makes a request to the backend API with exponential backoff.
          * @param {object} payload The request payload.
          * @param {number} maxRetries Maximum number of retries.
          * @returns {Promise<object>} The API response.
@@ -351,12 +404,12 @@
                     if (response.ok) {
                         return await response.json();
                     } else if (response.status === 429) { // Throttling
-                         // Exponential backoff
                         await new Promise(res => setTimeout(res, delay));
                         delay *= 2;
                         attempt++;
                     } else {
-                        throw new Error(`API Error: ${response.status} ${response.statusText}`);
+                        const errorData = await response.json();
+                        throw new Error(`API Error: ${response.status} - ${errorData.error || response.statusText}`);
                     }
                 } catch (error) {
                      if (attempt >= maxRetries -1) {
@@ -396,22 +449,11 @@
 
 
                 const payload = {
-                    systemInstruction: {
-                        parts: [{ text: systemPrompt }]
-                    },
+                    systemInstruction: { parts: [{ text: systemPrompt }] },
                     contents: [{
-                        parts: [{
-                            text: "请分析这封信件。"
-                        }, {
-                            inlineData: {
-                                mimeType: uploadedFile.type,
-                                data: base64Data
-                            }
-                        }]
+                        parts: [{ text: "请分析这封信件。" }, { inlineData: { mimeType: uploadedFile.type, data: base64Data }}]
                     }],
-                     generationConfig: {
-                        responseMimeType: "application/json",
-                    }
+                    generationConfig: { responseMimeType: "application/json" }
                 };
                 
                 const result = await fetchWithBackoff(payload);
@@ -427,10 +469,10 @@
             } catch (error) {
                 console.error("分析失败:", error);
                 summaryEl.textContent = "抱歉，分析信件时出错。请检查文件格式或稍后重试。";
+                document.getElementById('analysis-results').style.display = 'block';
                 summaryEl.parentElement.classList.remove('hidden');
             } finally {
                 loadingSpinner.classList.add('hidden');
-                analysisResults.style.display = 'block';
             }
         }
 
@@ -439,6 +481,8 @@
          * @param {object} data The analysis data from the API.
          */
         function displayAnalysis(data) {
+            analysisResults.style.display = 'block';
+            originalLanguage = data.language; // Store the original language
             summaryEl.textContent = data.summary;
 
             keyInfoEl.innerHTML = data.keyInfo.map(info =>
@@ -469,7 +513,10 @@
              generateReplyBtn.textContent = '正在生成...';
              replyModal.classList.remove('hidden');
              replyLoading.classList.remove('hidden');
-             replyTextContainer.classList.add('hidden');
+             replyContentContainer.classList.add('hidden');
+             // Reset tabs to default state
+             switchTab('original');
+
 
              const userAnswers = {};
              const inputs = actionItemsEl.querySelectorAll('input[type="text"]');
@@ -479,36 +526,42 @@
 
              try {
                 const systemPrompt = `你是一位专业的行政助理。你的任务是根据用户的回答，起草一封专业、礼貌的回信。
-- **背景**: 用户收到了一封信，信件的摘要是：“${summaryEl.textContent}”。
+- **背景**: 用户收到了一封${originalLanguage}信件，信件的摘要是：“${summaryEl.textContent}”。
 - **用户提供的回复信息**: ${JSON.stringify(userAnswers)}
 - **任务**: 
-  1. 使用信件的原始语言起草回信。关键信息中包含了原始语言。
-  2. 回信内容必须清晰地回应所有需要处理的事项。
-  3. 保持专业和礼貌的语气。
-  4. 只返回信件的正文，不要包含任何额外的解释、标题或签名。`;
+  1. 生成一个包含两种语言回信的JSON对象。
+  2. 对象的第一个键是 "originalReply"，值是用${originalLanguage}写的回信正文。
+  3. 对象的第二个键是 "chineseReply"，值是 "originalReply" 的简体中文翻译，方便用户核对。
+  4. 回信内容必须清晰地回应所有需要处理的事项。
+  5. 保持专业和礼貌的语气。
+  6. 严格返回JSON格式，不要包含任何额外的解释或非JSON文本。`;
                 
                 const payload = {
-                    systemInstruction: {
-                        parts: [{ text: systemPrompt }]
-                    },
-                    contents: [{ parts: [{ text: "请根据我提供的回答，帮我生成一封回信。" }] }],
+                    systemInstruction: { parts: [{ text: systemPrompt }] },
+                    contents: [{ parts: [{ text: "请根据我提供的回答，帮我生成一封包含原文和中文翻译的回信。" }] }],
+                    generationConfig: { responseMimeType: "application/json" }
                 };
 
                 const result = await fetchWithBackoff(payload);
-                const reply = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                const replyText = result.candidates?.[0]?.content?.parts?.[0]?.text;
                 
-                if (reply) {
-                    replyTextEl.value = reply;
+                if (replyText) {
+                    const replies = JSON.parse(replyText);
+                    originalReplyTextarea.value = replies.originalReply;
+                    chineseReplyTextarea.value = replies.chineseReply;
+                    originalReplyTab.textContent = `${originalLanguage}回信`;
+                    copyBtnText.textContent = `复制${originalLanguage}内容`;
                 } else {
                     throw new Error("未能从API获取有效的回信内容。");
                 }
 
              } catch (error) {
                  console.error("生成回信失败:", error);
-                 replyTextEl.value = "抱歉，生成回信时出错，请稍后重试。";
+                 originalReplyTextarea.value = `抱歉，生成回信时出错：${error.message}`;
+                 chineseReplyTextarea.value = `抱歉，生成回信时出错：${error.message}`;
              } finally {
                  replyLoading.classList.add('hidden');
-                 replyTextContainer.classList.remove('hidden');
+                 replyContentContainer.classList.remove('hidden');
                  generateReplyBtn.disabled = false;
                  generateReplyBtn.textContent = '生成回信';
              }
@@ -518,16 +571,27 @@
          * Copies the generated reply text to the clipboard.
          */
         function copyReplyToClipboard() {
-            // Using document.execCommand as navigator.clipboard.writeText might fail in sandboxed environments
-            replyTextEl.select();
-            replyTextEl.setSelectionRange(0, 99999); // For mobile devices
+            let textToCopy = '';
+            // Check which panel is active
+            if (!originalReplyPanel.classList.contains('hidden')) {
+                textToCopy = originalReplyTextarea.value;
+            } else {
+                textToCopy = chineseReplyTextarea.value;
+            }
+            
+            // Create a temporary textarea to perform the copy command
+            const tempTextArea = document.createElement('textarea');
+            tempTextArea.value = textToCopy;
+            document.body.appendChild(tempTextArea);
+            tempTextArea.select();
             
             try {
                 const successful = document.execCommand('copy');
                 if (successful) {
+                    const originalBtnText = copyBtnText.textContent;
                     copyBtnText.textContent = '已复制!';
                     setTimeout(() => {
-                        copyBtnText.textContent = '复制内容';
+                        copyBtnText.textContent = originalBtnText;
                     }, 2000);
                 } else {
                     throw new Error('Copy command was not successful');
@@ -535,7 +599,8 @@
             } catch (err) {
                  console.error('Fallback: Oops, unable to copy', err);
                  copyBtnText.textContent = '复制失败';
-                 // A fallback could be to show instructions for manual copying.
+            } finally {
+                document.body.removeChild(tempTextArea);
             }
         }
 
