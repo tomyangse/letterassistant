@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能信件助手</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+        }
+
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border-left-color: #09f;
+            animation: spin 1s ease infinite;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50">
+    <div id="app" class="flex flex-col min-h-screen">
+        <header class="bg-blue-600 text-white shadow-md">
+            <div class="container mx-auto px-4 py-8 md:py-12">
+                <h1 class="text-4xl md:text-5xl font-bold text-center">智能信件助手</h1>
+                <p class="text-lg md:text-xl text-center mt-4 text-blue-100">上传信件图片，获得中文翻译和处理建议</p>
+                <div class="flex justify-center space-x-8 mt-6 text-sm md:text-base">
+                    <span class="flex items-center"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"
+                            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round" class="mr-2">
+                            <path d="m22 17-5-5 5-5" />
+                            <path d="m17 17-5-5 5-5" />
+                            <path d="M10 19V5" /></svg>快速上传</span>
+                    <span class="flex items-center"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"
+                            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round" class="mr-2">
+                            <path d="m5 8 6 6" />
+                            <path d="m4 14 6-6 2-3" />
+                            <path d="M2 5h12" />
+                            <path d="M7 2h1" />
+                            <path d="m22 22-5-10-5 10" />
+                            <path d="M14 18h6" /></svg>智能翻译</span>
+                    <span class="flex items-center"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"
+                            viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round" class="mr-2">
+                            <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" />
+                            <path d="m9 12 2 2 4-4" /></svg>处理建议</span>
+                </div>
+            </div>
+        </header>
+
+        <main class="container mx-auto px-4 py-8 flex-grow">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <!-- Upload Section -->
+                <div class="bg-white p-6 rounded-lg shadow-md">
+                    <h2 class="text-2xl font-semibold mb-4 text-gray-800 flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                            class="mr-3 text-blue-600">
+                            <path d="M4 22h14a2 2 0 0 0 2-2V7.5L14.5 2H6a2 2 0 0 0-2 2v4" />
+                            <polyline points="14 2 14 8 20 8" />
+                            <path d="M2 15.5v-1a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v1" />
+                            <path d="M2 19.5v-1a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v1" />
+                        </svg>
+                        上传信件
+                    </h2>
+                    <p class="text-gray-600 mb-6">支持 PDF, 图片等格式</p>
+
+                    <div id="upload-area"
+                        class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-blue-500 transition-colors">
+                        <input type="file" id="file-upload" class="hidden" accept="image/*,.pdf">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
+                            class="mx-auto text-gray-400 mb-4">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                            <polyline points="17 8 12 3 7 8" />
+                            <line x1="12" y1="3" x2="12" y2="15" />
+                        </svg>
+                        <p class="text-gray-700">点击或拖拽文件到这里上传</p>
+                        <p class="text-sm text-gray-500 mt-1">支持 PNG, JPG, GIF, PDF</p>
+                    </div>
+
+                    <div id="file-preview" class="hidden mt-6">
+                        <div class="flex items-center bg-gray-100 p-4 rounded-lg">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round" class="mr-4 text-blue-600">
+                                <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+                                <polyline points="14 2 14 8 20 8" />
+                            </svg>
+                            <div>
+                                <p id="file-name" class="font-medium text-gray-800"></p>
+                                <p id="file-size" class="text-sm text-gray-600"></p>
+                            </div>
+                            <button id="reset-upload"
+                                class="ml-auto bg-red-500 text-white px-3 py-1 rounded-md hover:bg-red-600 transition-colors text-sm">重新上传</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Result Section -->
+                <div id="result-section" class="bg-white p-6 rounded-lg shadow-md hidden">
+                    <h2 class="text-2xl font-semibold mb-4 text-gray-800 flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                            stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                            class="mr-3 text-blue-600">
+                            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                        </svg>
+                        处理结果
+                    </h2>
+                    <p class="text-gray-600 mb-6">中文翻译和处理建议</p>
+
+                    <div id="loading-spinner" class="flex justify-center items-center py-10 hidden">
+                        <div class="spinner"></div>
+                        <p class="ml-4 text-gray-700">正在智能分析中，请稍候...</p>
+                    </div>
+
+                    <div id="analysis-results">
+                        <!-- Content Summary -->
+                        <div>
+                            <h3 class="text-lg font-semibold mb-2 text-gray-700 flex items-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round" class="mr-2">
+                                    <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+                                    <polyline points="14 2 14 8 20 8" />
+                                    <line x1="16" y1="13" x2="8" y2="13" />
+                                    <line x1="16" y1="17" x2="8" y2="17" />
+                                    <line x1="10" y1="9" x2="8" y2="9" /></svg>
+                                内容摘要
+                            </h3>
+                            <p id="summary" class="bg-gray-100 p-4 rounded-lg text-gray-800"></p>
+                        </div>
+
+                        <!-- Key Information -->
+                        <div class="mt-6">
+                            <h3 class="text-lg font-semibold mb-2 text-gray-700 flex items-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round" class="mr-2">
+                                    <path d="M15.5 6.5C15.5 5.26 14.5 4 13 4h-1.5a.5.5 0 0 0 0 1H13c.83 0 1.5.67 1.5 1.5v1.28c0 .32-.13.64-.35.86l-2.15 2.15c-.19.19-.3.45-.3.72v.04c0 .48.33.9.78.99.5.1.98-.24 1.13-.7.16-.48-.14-1.01-.64-1.13-.13-.03-.26-.03-.39.01l.01-.01c0-.12.05-.23.13-.31l2.15-2.15c.45-.45.72-1.08.72-1.76v-.01z" />
+                                    <path d="M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16z" />
+                                    <path d="M12 12v.01" /></svg>
+                                关键信息
+                            </h3>
+                            <ul id="key-info" class="space-y-2"></ul>
+                        </div>
+
+                        <!-- Action Items -->
+                        <div id="action-items-section" class="mt-6 hidden">
+                            <h3 class="text-lg font-semibold mb-2 text-gray-700 flex items-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round" class="mr-2">
+                                    <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+                                    <circle cx="12" cy="12" r="3" /></svg>
+                                需要处理的事项
+                            </h3>
+                            <div id="action-items" class="space-y-4"></div>
+                            <button id="generate-reply-btn"
+                                class="w-full mt-6 bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 transition-colors font-semibold disabled:bg-blue-300 disabled:cursor-not-allowed">生成回信</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Reply Modal -->
+            <div id="reply-modal"
+                class="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center p-4 hidden z-50">
+                <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl transform transition-all max-h-[90vh] flex flex-col">
+                    <div class="flex justify-between items-center p-5 border-b">
+                        <h2 class="text-2xl font-bold text-gray-800">生成的回信</h2>
+                        <button id="close-modal-btn" class="text-gray-500 hover:text-gray-800">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+                                stroke-linejoin="round">
+                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                            </svg>
+                        </button>
+                    </div>
+                    <div id="modal-content" class="p-6 overflow-y-auto">
+                        <div id="reply-loading" class="flex justify-center items-center py-10">
+                             <div class="spinner"></div>
+                            <p class="ml-4 text-gray-700">正在生成回信...</p>
+                        </div>
+                        <div id="reply-text-container" class="hidden">
+                             <textarea id="reply-text" readonly
+                                class="w-full h-64 p-3 border border-gray-300 rounded-lg bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"></textarea>
+                            <button id="copy-reply-btn"
+                                class="mt-4 w-full bg-green-600 text-white px-4 py-3 rounded-lg hover:bg-green-700 transition-colors font-semibold flex items-center justify-center">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24"
+                                    fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                    stroke-linejoin="round" class="mr-2">
+                                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                                </svg>
+                                <span id="copy-btn-text">复制内容</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+
+        <footer class="bg-white mt-12 py-6 border-t">
+            <div class="container mx-auto px-4 text-center text-gray-600">
+                <p>&copy; 2025 智能信件助手. 版权所有.</p>
+            </div>
+        </footer>
+    </div>
+
+
+    <script type="module">
+        // Gemini API Configuration
+        const API_KEY = ""; // This will no longer be used directly.
+        const GENERATE_TEXT_API_URL = '/api/analyze'; // Change this to our own backend endpoint
+
+        // DOM Elements
+        const uploadArea = document.getElementById('upload-area');
+        const fileUpload = document.getElementById('file-upload');
+        const filePreview = document.getElementById('file-preview');
+        const fileNameEl = document.getElementById('file-name');
+        const fileSizeEl = document.getElementById('file-size');
+        const resetUploadBtn = document.getElementById('reset-upload');
+        const resultSection = document.getElementById('result-section');
+        const loadingSpinner = document.getElementById('loading-spinner');
+        const analysisResults = document.getElementById('analysis-results');
+        const summaryEl = document.getElementById('summary');
+        const keyInfoEl = document.getElementById('key-info');
+        const actionItemsSection = document.getElementById('action-items-section');
+        const actionItemsEl = document.getElementById('action-items');
+        const generateReplyBtn = document.getElementById('generate-reply-btn');
+        const replyModal = document.getElementById('reply-modal');
+        const closeModalBtn = document.getElementById('close-modal-btn');
+        const replyLoading = document.getElementById('reply-loading');
+        const replyTextContainer = document.getElementById('reply-text-container');
+        const replyTextEl = document.getElementById('reply-text');
+        const copyReplyBtn = document.getElementById('copy-reply-btn');
+        const copyBtnText = document.getElementById('copy-btn-text');
+
+
+        let uploadedFile = null;
+
+        // Event Listeners
+        uploadArea.addEventListener('click', () => fileUpload.click());
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('border-blue-500', 'bg-blue-50');
+        });
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('border-blue-500', 'bg-blue-50');
+        });
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('border-blue-500', 'bg-blue-50');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        });
+        fileUpload.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFile(e.target.files[0]);
+            }
+        });
+        resetUploadBtn.addEventListener('click', resetState);
+        generateReplyBtn.addEventListener('click', handleGenerateReply);
+        closeModalBtn.addEventListener('click', () => replyModal.classList.add('hidden'));
+        copyReplyBtn.addEventListener('click', copyReplyToClipboard);
+
+        /**
+         * Resets the application to its initial state.
+         */
+        function resetState() {
+            fileUpload.value = '';
+            uploadedFile = null;
+            uploadArea.classList.remove('hidden');
+            filePreview.classList.add('hidden');
+            resultSection.classList.add('hidden');
+            analysisResults.style.display = 'none';
+            actionItemsSection.classList.add('hidden');
+            actionItemsEl.innerHTML = '';
+            keyInfoEl.innerHTML = '';
+        }
+
+        /**
+         * Handles the selected file, displays preview, and starts analysis.
+         * @param {File} file The file selected by the user.
+         */
+        function handleFile(file) {
+            uploadedFile = file;
+            fileNameEl.textContent = file.name;
+            fileSizeEl.textContent = `${(file.size / 1024 / 1024).toFixed(2)} MB`;
+            uploadArea.classList.add('hidden');
+            filePreview.classList.remove('hidden');
+            resultSection.classList.remove('hidden');
+            analyzeLetter();
+        }
+
+        /**
+         * Converts a file to a Base64 encoded string.
+         * @param {File} file The file to convert.
+         * @returns {Promise<string>} A promise that resolves with the Base64 string.
+         */
+        function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onload = () => resolve(reader.result.split(',')[1]);
+                reader.onerror = error => reject(error);
+            });
+        }
+        
+        /**
+         * Makes a request to the Gemini API with exponential backoff.
+         * @param {object} payload The request payload.
+         * @param {number} maxRetries Maximum number of retries.
+         * @returns {Promise<object>} The API response.
+         */
+        async function fetchWithBackoff(payload, maxRetries = 5) {
+            let attempt = 0;
+            let delay = 1000; // 1 second
+            while (attempt < maxRetries) {
+                try {
+                    const response = await fetch(GENERATE_TEXT_API_URL, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(payload),
+                    });
+
+                    if (response.ok) {
+                        return await response.json();
+                    } else if (response.status === 429) { // Throttling
+                         // Exponential backoff
+                        await new Promise(res => setTimeout(res, delay));
+                        delay *= 2;
+                        attempt++;
+                    } else {
+                        throw new Error(`API Error: ${response.status} ${response.statusText}`);
+                    }
+                } catch (error) {
+                     if (attempt >= maxRetries -1) {
+                        throw error;
+                     }
+                     await new Promise(res => setTimeout(res, delay));
+                     delay *= 2;
+                     attempt++;
+                }
+            }
+            throw new Error("API request failed after multiple retries.");
+        }
+
+
+        /**
+         * Analyzes the uploaded letter using the Gemini API.
+         */
+        async function analyzeLetter() {
+            if (!uploadedFile) return;
+
+            loadingSpinner.classList.remove('hidden');
+            analysisResults.style.display = 'none';
+
+            try {
+                const base64Data = await fileToBase64(uploadedFile);
+
+                const systemPrompt = `你是一位专业的行政助理。你的任务是分析上传的信件（图片或PDF格式），并以结构化的JSON格式提供以下信息：
+1.  **summary**: 用简体中文对信件内容进行简洁的摘要。
+2.  **language**: 信件的原始语言 (例如, "English", "Swedish", "German")。
+3.  **keyInfo**: 一个包含信件中关键信息点的字符串数组。例如：发件人、事由、重要日期等。
+4.  **actionItems**: 一个对象数组，代表收件人需要回复或处理的事项。每个对象应该包含：
+    -   **id**: 一个唯一标识符 (例如, "question1", "question2")。
+    -   **question**: 一个用简体中文提出的清晰问题，引导用户提供回复所需的信息。
+
+如果信件不需要任何回复或操作，返回一个空的 "actionItems" 数组。
+确保你的回答严格遵循JSON格式，不要包含任何额外的解释或非JSON文本。`;
+
+
+                const payload = {
+                    systemInstruction: {
+                        parts: [{ text: systemPrompt }]
+                    },
+                    contents: [{
+                        parts: [{
+                            text: "请分析这封信件。"
+                        }, {
+                            inlineData: {
+                                mimeType: uploadedFile.type,
+                                data: base64Data
+                            }
+                        }]
+                    }],
+                     generationConfig: {
+                        responseMimeType: "application/json",
+                    }
+                };
+                
+                const result = await fetchWithBackoff(payload);
+                const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+
+                if (text) {
+                    const data = JSON.parse(text);
+                    displayAnalysis(data);
+                } else {
+                    throw new Error("未能从API获取有效分析结果。");
+                }
+
+            } catch (error) {
+                console.error("分析失败:", error);
+                summaryEl.textContent = "抱歉，分析信件时出错。请检查文件格式或稍后重试。";
+                summaryEl.parentElement.classList.remove('hidden');
+            } finally {
+                loadingSpinner.classList.add('hidden');
+                analysisResults.style.display = 'block';
+            }
+        }
+
+        /**
+         * Displays the analysis results on the page.
+         * @param {object} data The analysis data from the API.
+         */
+        function displayAnalysis(data) {
+            summaryEl.textContent = data.summary;
+
+            keyInfoEl.innerHTML = data.keyInfo.map(info =>
+                `<li class="flex items-start bg-blue-50 text-blue-800 p-3 rounded-lg">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-3 mt-1 flex-shrink-0"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                    <span>${info}</span>
+                </li>`
+            ).join('');
+
+            if (data.actionItems && data.actionItems.length > 0) {
+                actionItemsEl.innerHTML = data.actionItems.map(item =>
+                    `<div class="bg-gray-50 p-4 rounded-lg border">
+                        <label for="${item.id}" class="block font-medium text-gray-800 mb-2">${item.question}</label>
+                        <input type="text" id="${item.id}" name="${item.id}" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="请在此输入您的回答...">
+                    </div>`
+                ).join('');
+                actionItemsSection.classList.remove('hidden');
+            } else {
+                 actionItemsSection.classList.add('hidden');
+            }
+        }
+        
+        /**
+         * Handles the generation of the reply letter.
+         */
+        async function handleGenerateReply() {
+             generateReplyBtn.disabled = true;
+             generateReplyBtn.textContent = '正在生成...';
+             replyModal.classList.remove('hidden');
+             replyLoading.classList.remove('hidden');
+             replyTextContainer.classList.add('hidden');
+
+             const userAnswers = {};
+             const inputs = actionItemsEl.querySelectorAll('input[type="text"]');
+             inputs.forEach(input => {
+                userAnswers[input.id] = input.value;
+             });
+
+             try {
+                const systemPrompt = `你是一位专业的行政助理。你的任务是根据用户的回答，起草一封专业、礼貌的回信。
+- **背景**: 用户收到了一封信，信件的摘要是：“${summaryEl.textContent}”。
+- **用户提供的回复信息**: ${JSON.stringify(userAnswers)}
+- **任务**: 
+  1. 使用信件的原始语言起草回信。关键信息中包含了原始语言。
+  2. 回信内容必须清晰地回应所有需要处理的事项。
+  3. 保持专业和礼貌的语气。
+  4. 只返回信件的正文，不要包含任何额外的解释、标题或签名。`;
+                
+                const payload = {
+                    systemInstruction: {
+                        parts: [{ text: systemPrompt }]
+                    },
+                    contents: [{ parts: [{ text: "请根据我提供的回答，帮我生成一封回信。" }] }],
+                };
+
+                const result = await fetchWithBackoff(payload);
+                const reply = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                
+                if (reply) {
+                    replyTextEl.value = reply;
+                } else {
+                    throw new Error("未能从API获取有效的回信内容。");
+                }
+
+             } catch (error) {
+                 console.error("生成回信失败:", error);
+                 replyTextEl.value = "抱歉，生成回信时出错，请稍后重试。";
+             } finally {
+                 replyLoading.classList.add('hidden');
+                 replyTextContainer.classList.remove('hidden');
+                 generateReplyBtn.disabled = false;
+                 generateReplyBtn.textContent = '生成回信';
+             }
+        }
+        
+        /**
+         * Copies the generated reply text to the clipboard.
+         */
+        function copyReplyToClipboard() {
+            // Using document.execCommand as navigator.clipboard.writeText might fail in sandboxed environments
+            replyTextEl.select();
+            replyTextEl.setSelectionRange(0, 99999); // For mobile devices
+            
+            try {
+                const successful = document.execCommand('copy');
+                if (successful) {
+                    copyBtnText.textContent = '已复制!';
+                    setTimeout(() => {
+                        copyBtnText.textContent = '复制内容';
+                    }, 2000);
+                } else {
+                    throw new Error('Copy command was not successful');
+                }
+            } catch (err) {
+                 console.error('Fallback: Oops, unable to copy', err);
+                 copyBtnText.textContent = '复制失败';
+                 // A fallback could be to show instructions for manual copying.
+            }
+        }
+
+    </script>
+</body>
+
+</html>
+
